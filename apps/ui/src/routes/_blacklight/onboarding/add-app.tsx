@@ -13,11 +13,14 @@ import {
 import { ArrowRightIcon } from "@phosphor-icons/react/ArrowRight";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { GithubLogoIcon } from "@phosphor-icons/react/GithubLogo";
+import { GitlabLogoIcon } from "@phosphor-icons/react/GitlabLogo";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Navigate, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ConnectGitLabSection } from "components/connect-gitlab";
 import { DeleteApplicationDialog } from "components/delete-application-dialog";
 import { InstallFailureBanner } from "components/install-failure-banner";
+import { ProviderLogoIcon, providerDisplayName } from "components/provider-logo";
 import { getApiOrigin } from "lib/api-origin";
 import {
   installActionLabel,
@@ -39,7 +42,6 @@ import {
 import { trpc } from "lib/trpc";
 import { Component, Suspense, useState, type ReactNode } from "react";
 import { z } from "zod";
-import { ConnectGitLabSection } from "components/connect-gitlab";
 import { OnboardingPageHeader } from "./-components/onboarding-page-header";
 
 /** What the install callback hands back on failure, threaded to whichever step renders it. */
@@ -107,7 +109,7 @@ export function AddAppPage({
       <OnboardingPageHeader
         leading={
           <div className="mb-4 flex size-12 items-center justify-center rounded-full border border-primary-ink/20 bg-surface-base">
-            <GithubLogoIcon size={22} weight="duotone" className="text-primary-ink" />
+            <ProviderLogoIcon size={22} className="text-primary-ink" />
           </div>
         }
         title="Add your app"
@@ -151,7 +153,7 @@ class AddAppErrorBoundary extends Component<{ children: ReactNode }, { error?: E
         <div className="flex items-start gap-3 rounded border border-status-critical/30 bg-status-critical/5 px-5 py-4">
           <WarningCircleIcon size={20} weight="fill" className="mt-0.5 shrink-0 text-status-critical" />
           <div>
-            <p className="text-sm font-medium text-text-primary">Failed to load GitHub configuration</p>
+            <p className="text-sm font-medium text-text-primary">Failed to load git provider configuration</p>
             <p className="mt-1 font-mono text-3xs text-text-secondary">{this.state.error.message}</p>
           </div>
         </div>
@@ -203,7 +205,13 @@ function AddAppContent({
   return (
     <>
       {failure != null && <InstallFailureBanner {...failure} className="mb-8" />}
-      <RepoAndNameStep appId={appId} settingsUrl={installation.settingsUrl} provider={installation.provider} origin={origin} />
+      <RepoAndNameStep
+        appId={appId}
+        settingsUrl={installation.settingsUrl}
+        provider={installation.provider}
+        accountLogin={installation.accountLogin}
+        origin={origin}
+      />
     </>
   );
 }
@@ -328,11 +336,13 @@ function RepoAndNameStep({
   appId,
   settingsUrl,
   provider,
+  accountLogin,
   origin,
 }: {
   appId?: string;
   settingsUrl?: string;
   provider?: "github" | "gitlab";
+  accountLogin?: string;
   origin?: OnboardingOrigin;
 }) {
   const navigate = useNavigate();
@@ -420,6 +430,32 @@ function RepoAndNameStep({
 
   return (
     <>
+      {/* Who this repository list comes from. Without it the picker is a bare dropdown and there is
+          no way to tell which provider or account is connected - or where to go to change it. */}
+      {accountLogin != null && (
+        <div className="mb-6 flex max-w-lg items-center gap-2 rounded border border-border-dim bg-surface-base px-3 py-2">
+          {provider === "gitlab" ? (
+            <GitlabLogoIcon size={16} weight="duotone" className="shrink-0 text-text-secondary" />
+          ) : (
+            <GithubLogoIcon size={16} weight="duotone" className="shrink-0 text-text-secondary" />
+          )}
+          <p className="font-mono text-2xs text-text-secondary">
+            Connected to {providerDisplayName(provider)} as <span className="text-text-primary">{accountLogin}</span>.
+            To switch providers or accounts, use Settings &rarr; Git provider after adding the app.
+          </p>
+          {settingsUrl != null && !isDemo && (
+            <a
+              href={settingsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto inline-flex shrink-0 items-center gap-1 font-mono text-2xs text-primary-ink underline underline-offset-2 transition-colors hover:text-primary-ink/80"
+            >
+              Manage
+              <ArrowSquareOutIcon size={12} />
+            </a>
+          )}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="flex max-w-lg flex-col gap-8">
         <div className="flex flex-col gap-1.5">
           <Label>Repository</Label>

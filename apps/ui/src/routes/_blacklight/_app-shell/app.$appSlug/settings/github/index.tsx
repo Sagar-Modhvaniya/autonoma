@@ -2,14 +2,19 @@ import { Badge, Button, Panel, PanelBody, PanelHeader, PanelTitle, Separator, Sk
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { GithubLogoIcon } from "@phosphor-icons/react/GithubLogo";
 import { GitlabLogoIcon } from "@phosphor-icons/react/GitlabLogo";
-import { ConnectGitLabSection } from "components/connect-gitlab";
 import { LinkBreakIcon } from "@phosphor-icons/react/LinkBreak";
 import { createFileRoute } from "@tanstack/react-router";
+import { ConnectGitLabSection } from "components/connect-gitlab";
 import { InstallFailureBanner } from "components/install-failure-banner";
 import { RouteErrorState } from "components/route-error-state";
 import { manageUrlSchema, singleAccountLimitNote } from "lib/github-install-errors";
 import { useActiveOrg } from "lib/query/auth.queries";
-import { useDisconnectGitLab, useDisconnectGithub, useGithubConfig, useGithubInstallation } from "lib/query/github.queries";
+import {
+  useDisconnectGitLab,
+  useDisconnectGithub,
+  useGithubConfig,
+  useGithubInstallation,
+} from "lib/query/github.queries";
 import { Suspense, useState } from "react";
 import { z } from "zod";
 import { OrgScopeNote } from "../-org-scope-note";
@@ -136,7 +141,7 @@ function InstallationPanel({
   const isDemo = useActiveOrg().data?.isDemo === true;
   // Shared with the failure copy and gated on the same flag, so lifting the one-account limit does
   // not leave this paragraph behind asserting something that is no longer true.
-  const limitNote = singleAccountLimitNote(accountLogin);
+  const limitNote = singleAccountLimitNote(accountLogin, provider);
 
   return (
     <Panel>
@@ -153,7 +158,9 @@ function InstallationPanel({
             )}
             <div>
               <p className="text-sm font-medium text-text-primary">{accountLogin}</p>
-              <p className="font-mono text-2xs text-text-secondary">{provider === "gitlab" ? "GitLab connection" : "GitHub App installation"}</p>
+              <p className="font-mono text-2xs text-text-secondary">
+                {provider === "gitlab" ? "GitLab connection" : "GitHub App installation"}
+              </p>
             </div>
           </div>
           <Badge variant={status === "active" ? "success" : "destructive"}>{status}</Badge>

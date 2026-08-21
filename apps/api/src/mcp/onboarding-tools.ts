@@ -3,6 +3,7 @@ import type { OnboardingPreviewEnvironmentMode, PrismaClient } from "@autonoma/d
 import { BadRequestError, ConflictError, NotFoundError } from "@autonoma/errors";
 import { logger as rootLogger } from "@autonoma/logger";
 import {
+    buildDeploymentSignalGitLabJob,
     buildDeploymentSignalWorkflow,
     DEPLOYMENT_SIGNAL_BODY_FIELDS,
     INTEGRATION_BRANCH,
@@ -1323,6 +1324,15 @@ export function registerOnboardingTools(server: McpServer, deps: OnboardingToolD
                             "A starting point for pipelines that report deployments to GitHub. If this project " +
                             "does not emit deployment_status, do not bend it to fit - make the same signed call " +
                             "from whatever step in its pipeline knows a preview is live.",
+                        templateGitLabJob: buildDeploymentSignalGitLabJob({
+                            applicationId,
+                            endpoint: signalEndpoint(),
+                        }),
+                        templateGitLabJobNote:
+                            "A starting point for projects on GitLab CI: a job that runs after the deploy job in " +
+                            "the same pipeline, sending branch + MR number on merge-request pipelines. Use " +
+                            "whichever template matches the project's host, or neither - only the signed call " +
+                            "matters.",
                     });
                 } catch (err) {
                     logger.warn("get_signal_setup failed", { applicationId, err });

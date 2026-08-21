@@ -1,6 +1,8 @@
 import { Button } from "@autonoma/blacklight";
 import {
+  buildDeploymentSignalGitLabJob,
   buildDeploymentSignalWorkflow,
+  DEPLOYMENT_SIGNAL_GITLAB_CI_PATH,
   DEPLOYMENT_SIGNAL_SECRET_NAME,
   DEPLOYMENT_SIGNAL_WORKFLOW_PATH,
 } from "@autonoma/types";
@@ -11,6 +13,7 @@ import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { KeyIcon } from "@phosphor-icons/react/Key";
 import type { Icon } from "@phosphor-icons/react/lib";
 import { RocketLaunchIcon } from "@phosphor-icons/react/RocketLaunch";
+import { useGitProvider } from "components/provider-logo";
 import { getApiOrigin } from "lib/api-origin";
 import { toastManager } from "lib/toast-manager";
 import type { ReactNode } from "react";
@@ -51,26 +54,33 @@ interface SetupStep {
   body: string;
 }
 
-const SETUP_STEPS: SetupStep[] = [
-  {
-    index: "01",
-    icon: KeyIcon,
-    title: `Add ${SECRET_NAME} to your repository secrets`,
-    body: "GitHub > Settings > Secrets and variables > Actions > New repository secret. The workflow signs every signal with it, and Autonoma rejects anything that isn't signed.",
-  },
-  {
-    index: "02",
-    icon: GitPullRequestIcon,
-    title: "Make the signed call from your pipeline",
-    body: `Copy the template on the right - it commits as ${WORKFLOW_PATH} if your host reports deployments to GitHub. If it doesn't, make the same signed call from whatever step knows a preview is live.`,
-  },
-  {
-    index: "03",
-    icon: RocketLaunchIcon,
-    title: "Push, and let your preview deploy",
-    body: "Autonoma is only signalled after a preview is actually live, so your normal deploy has to finish first.",
-  },
-];
+function buildSetupSteps(provider: "github" | "gitlab" | undefined): SetupStep[] {
+  const gitlab = provider === "gitlab";
+  return [
+    {
+      index: "01",
+      icon: KeyIcon,
+      title: gitlab ? `Add ${SECRET_NAME} to your CI/CD variables` : `Add ${SECRET_NAME} to your repository secrets`,
+      body: gitlab
+        ? "GitLab > Settings > CI/CD > Variables > Add variable (mark it Masked). The job signs every signal with it, and Autonoma rejects anything that isn't signed."
+        : "GitHub > Settings > Secrets and variables > Actions > New repository secret. The workflow signs every signal with it, and Autonoma rejects anything that isn't signed.",
+    },
+    {
+      index: "02",
+      icon: GitPullRequestIcon,
+      title: "Make the signed call from your pipeline",
+      body: gitlab
+        ? `Copy the template on the right - it is a job for your ${DEPLOYMENT_SIGNAL_GITLAB_CI_PATH}, run after your deploy job in the same pipeline. If your deploys happen elsewhere, make the same signed call from whatever step knows a preview is live.`
+        : `Copy the template on the right - it commits as ${WORKFLOW_PATH} if your host reports deployments to GitHub. If it doesn't, make the same signed call from whatever step knows a preview is live.`,
+    },
+    {
+      index: "03",
+      icon: RocketLaunchIcon,
+      title: "Push, and let your preview deploy",
+      body: "Autonoma is only signalled after a preview is actually live, so your normal deploy has to finish first.",
+    },
+  ];
+}
 
 export interface DeploymentSignalSetupProps {
   /** The app the signal is for. Undefined while it loads - the snippet shows a placeholder. */
@@ -92,7 +102,13 @@ export interface DeploymentSignalSetupProps {
 export function DeploymentSignalSetup({ applicationId, sharedSecret }: DeploymentSignalSetupProps) {
   const endpoint = `${getApiOrigin()}/v1/onboarding/deployment-signal`;
   const resolvedApplicationId = applicationId ?? APPLICATION_ID_PLACEHOLDER;
-  const workflow = buildDeploymentSignalWorkflow({ applicationId: resolvedApplicationId, endpoint });
+  const provider = useGitProvider();
+  const gitlab = provider === "gitlab";
+  const workflow = gitlab
+    ? buildDeploymentSignalGitLabJob({ applicationId: resolvedApplicationId, endpoint })
+    : buildDeploymentSignalWorkflow({ applicationId: resolvedApplicationId, endpoint });
+  const templatePath = gitlab ? DEPLOYMENT_SIGNAL_GITLAB_CI_PATH : WORKFLOW_PATH;
+  const setupSteps = buildSetupSteps(provider);
   const secret = sharedSecret ?? SHARED_SECRET_PLACEHOLDER;
 
   // The clipboard carries the brief as well as the YAML: the workflow is a
@@ -100,7 +116,7 @@ export function DeploymentSignalSetup({ applicationId, sharedSecret }: Deploymen
   // pasting into a coding agent. Handing over only the file invites it to be
   // committed verbatim into a pipeline that never emits `deployment_status`.
   function copyWorkflow() {
-    const payload = `${buildTemplateBrief({ applicationId: resolvedApplicationId, endpoint })}\n${workflow}`;
+    const payload = `${buildTemplateBrief({ applicationId: resolvedApplicationId, endpoint, gitlab })}\n${workflow}`;
     void navigator.clipboard.writeText(payload).then(() => {
       toastManager.add({ type: "success", title: "Workflow copied", description: "Includes notes for your agent" });
     });
@@ -126,10 +142,19 @@ export function DeploymentSignalSetup({ applicationId, sharedSecret }: Deploymen
             live, telling it which URL to open - that URL is what generated tests run against.
           </p>
           <p className="mt-3 max-w-3xl text-sm text-text-secondary">
-            The workflow on the right is <span className="text-text-primary">one way</span> to make that call: it hangs
-            off GitHub's <span className="font-mono text-primary-ink">deployment_status</span> event, which suits hosts
-            that report deployments back to GitHub. If yours doesn't, make the same call from whatever step in your
-            pipeline knows a preview is live.
+            The template on the right is <span className="text-text-primary">one way</span> to make that call:{" "}
+            {gitlab ? (
+              <>
+                it runs as a job in your GitLab CI pipeline, after your deploy job. If your deploys happen outside that
+                pipeline, make the same call from whatever step knows a preview is live.
+              </>
+            ) : (
+              <>
+                it hangs off GitHub's <span className="font-mono text-primary-ink">deployment_status</span> event, which
+                suits hosts that report deployments back to GitHub. If yours doesn't, make the same call from whatever
+                step in your pipeline knows a preview is live.
+              </>
+            )}
           </p>
           <SignalFlow />
         </div>
@@ -159,7 +184,7 @@ export function DeploymentSignalSetup({ applicationId, sharedSecret }: Deploymen
         <div className="mt-2 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(28rem,1fr)]">
           <section className="border border-border-dim bg-surface-base">
             <div className="space-y-5 p-6">
-              {SETUP_STEPS.map((step) => (
+              {setupSteps.map((step) => (
                 <SetupStepRow key={step.index} step={step}>
                   {step.index === "01" ? (
                     <Button variant="outline" size="xs" className="mt-3 gap-2" onClick={copySecret}>
@@ -176,7 +201,7 @@ export function DeploymentSignalSetup({ applicationId, sharedSecret }: Deploymen
             <div className="flex items-center justify-between border-b border-border-dim bg-surface-raised px-5 py-4">
               <div className="flex items-center gap-2.5">
                 <h2 className="font-mono text-sm font-bold uppercase tracking-widest text-text-primary">
-                  {WORKFLOW_PATH}
+                  {templatePath}
                 </h2>
                 <span className="border border-border-mid px-1.5 py-0.5 font-mono text-4xs uppercase tracking-widest text-text-secondary">
                   Template
@@ -246,7 +271,26 @@ function SetupStepRow({ step, children }: { step: SetupStep; children?: ReactNod
  * it, not the requirement - so an agent adapts it to the pipeline in front of it
  * instead of committing a workflow that will never fire.
  */
-function buildTemplateBrief({ applicationId, endpoint }: { applicationId: string; endpoint: string }) {
+function buildTemplateBrief({
+  applicationId,
+  endpoint,
+  gitlab,
+}: {
+  applicationId: string;
+  endpoint: string;
+  gitlab: boolean;
+}) {
+  const triggerNote = gitlab
+    ? `# The job below is one way to make that call - it runs in your GitLab CI
+# pipeline after the deploy job, and sends branch + MR number on merge-request
+# pipelines. If your deploys happen outside that pipeline, do NOT bend it to
+# fit: make the same signed call from whatever step knows a preview is live
+# (a deploy job, your host's webhook, a post-deploy script).`
+    : `# The workflow below is one way to make that call - it hangs off GitHub's
+# deployment_status event, which suits hosts that report deployments to GitHub.
+# If your pipeline does not emit deployment_status, do NOT bend it to fit: make
+# the same signed call from whatever step in your pipeline knows a preview is
+# live (a deploy job, your host's webhook, a post-deploy script).`;
   return `# ---------------------------------------------------------------------------
 # Autonoma preview signal - TEMPLATE. Adapt it; do not assume it drops in.
 #
@@ -265,11 +309,7 @@ function buildTemplateBrief({ applicationId, endpoint }: { applicationId: string
 #     "provider":      "custom"      // optional
 #   }
 #
-# The workflow below is one way to make that call - it hangs off GitHub's
-# deployment_status event, which suits hosts that report deployments to GitHub.
-# If your pipeline does not emit deployment_status, do NOT bend it to fit: make
-# the same signed call from whatever step in your pipeline knows a preview is
-# live (a deploy job, your host's webhook, a post-deploy script).
+${triggerNote}
 #
 # Two things to get right whichever way you trigger it:
 #   1. Sign the EXACT bytes you send. Re-serializing the JSON changes the digest.

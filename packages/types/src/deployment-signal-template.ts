@@ -8,8 +8,9 @@
  * have to be looking at the same thing.
  *
  * The workflow is a STARTING POINT, not the integration. Autonoma requires only
- * the signed POST; hanging it off GitHub's `deployment_status` is one way to make
- * that call, and plenty of pipelines never emit that event.
+ * the signed POST; hanging it off GitHub's `deployment_status` (or, on GitLab, a
+ * job after the deploy in the same pipeline) is one way to make that call, and
+ * plenty of pipelines never emit that event.
  */
 
 /** The repository secret the signal body is signed with. */
@@ -78,4 +79,52 @@ jobs:
             -H "content-type: application/json" \\
             -H "x-signature: $SIG" \\
             --data "$BODY"`;
+}
+
+/** Conventional home for the starter job, when a project uses GitLab CI. */
+export const DEPLOYMENT_SIGNAL_GITLAB_CI_PATH = ".gitlab-ci.yml";
+
+/**
+ * A GitLab CI job that makes the signed call after the deploy job in the same
+ * pipeline. GitLab has no cross-host `deployment_status` event, so the job runs
+ * in the pipeline itself: merge-request pipelines carry `CI_MERGE_REQUEST_IID`,
+ * which is what turns the signal into a per-MR review; a default-branch pipeline
+ * sends neither branch nor number and records a main-branch deploy.
+ */
+export function buildDeploymentSignalGitLabJob({ applicationId, endpoint }: DeploymentSignalWorkflowParams): string {
+    return `# Add to ${DEPLOYMENT_SIGNAL_GITLAB_CI_PATH} - runs after your deploy job in the same pipeline.
+# Set PREVIEW_URL to wherever that pipeline's deploy actually went live.
+autonoma_preview_signal:
+  stage: .post
+  image: alpine:3.20
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  variables:
+    AUTONOMA_ENDPOINT: "${endpoint}"
+    AUTONOMA_APPLICATION_ID: "${applicationId}"
+    PREVIEW_URL: "$CI_ENVIRONMENT_URL" # or the URL your deploy job knows
+  script:
+    - apk add --no-cache curl jq openssl
+    - |
+      if [ -n "$CI_MERGE_REQUEST_IID" ]; then
+        BODY=$(jq -nc \\
+          --arg applicationId "$AUTONOMA_APPLICATION_ID" \\
+          --arg previewUrl "$PREVIEW_URL" \\
+          --arg branch "$CI_COMMIT_REF_NAME" \\
+          --argjson prNumber "$CI_MERGE_REQUEST_IID" \\
+          --arg sha "$CI_COMMIT_SHA" \\
+          '{applicationId:$applicationId,previewUrl:$previewUrl,branch:$branch,prNumber:$prNumber,sha:$sha,provider:"gitlab-ci"}')
+      else
+        BODY=$(jq -nc \\
+          --arg applicationId "$AUTONOMA_APPLICATION_ID" \\
+          --arg previewUrl "$PREVIEW_URL" \\
+          --arg sha "$CI_COMMIT_SHA" \\
+          '{applicationId:$applicationId,previewUrl:$previewUrl,sha:$sha,provider:"gitlab-ci"}')
+      fi
+      SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$${DEPLOYMENT_SIGNAL_SECRET_NAME}" -hex | sed 's/^.* //')
+      curl -sS -X POST "$AUTONOMA_ENDPOINT" \\
+        -H "content-type: application/json" \\
+        -H "x-signature: $SIG" \\
+        --data "$BODY"`;
 }

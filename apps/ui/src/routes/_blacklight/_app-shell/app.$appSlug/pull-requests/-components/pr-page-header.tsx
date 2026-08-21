@@ -7,6 +7,7 @@ import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { useLocation } from "@tanstack/react-router";
 import { PrStatusPill } from "components/pr-status/pr-status-pill";
+import { providerDisplayName, useGitProviderInfo, type GitProviderInfo } from "components/provider-logo";
 import { useActiveOrg } from "lib/query/auth.queries";
 import { useBranchByPr, usePrPipelineStatus } from "lib/query/branches.queries";
 import { useApplicationRepositoryFromGitHub, usePullRequestFromGitHub, useRunAnalysis } from "lib/query/github.queries";
@@ -18,7 +19,7 @@ import type { PRTab } from "./pr-tabs";
 
 type Repository = RouterOutputs["github"]["getApplicationRepository"];
 
-// The shared PR-page chrome: the top bar (back action + title + status + GitHub link) and the meta
+// The shared PR-page chrome: the top bar (back action + title + status + git-provider link) and the meta
 // row (tab switcher + author/branch/details). Rendered once by the PR tab layout so it persists -
 // not remounted - as the Outlet swaps between the Overview and Preview tabs.
 export function PRPageHeader({ prNumber }: { prNumber: number }) {
@@ -27,7 +28,8 @@ export function PRPageHeader({ prNumber }: { prNumber: number }) {
   const { data: prStatus } = usePrPipelineStatus(app.id, branch.id);
   const pr = usePullRequestFromGitHub(app.id, prNumber);
   const repository = useApplicationRepositoryFromGitHub(app.id);
-  const prUrl = pr.data?.url ?? buildPullRequestUrl(repository.data, prNumber);
+  const providerInfo = useGitProviderInfo();
+  const prUrl = pr.data?.url ?? buildPullRequestUrl(repository.data, prNumber, providerInfo);
   const { pathname } = useLocation();
   const activeTab = resolveActiveTab(pathname);
 
@@ -96,16 +98,23 @@ function PRTopBar({
 
       <RunAnalysisButton applicationId={applicationId} prNumber={prNumber} />
 
-      {prUrl != null && (
-        <a href={prUrl} target="_blank" rel="noopener noreferrer">
-          <Button variant="outline" size="sm">
-            <GitPullRequestIcon size={14} />
-            Open in GitHub
-            <ArrowSquareOutIcon size={12} />
-          </Button>
-        </a>
-      )}
+      {prUrl != null && <OpenOnProviderButton prUrl={prUrl} />}
     </div>
+  );
+}
+
+// Labeled for the connected provider - "Open in GitLab" on a GitLab workspace. The URL itself is
+// already provider-correct (the live PR fetch returns the host's web URL).
+function OpenOnProviderButton({ prUrl }: { prUrl: string }) {
+  const provider = useGitProviderInfo()?.provider;
+  return (
+    <a href={prUrl} target="_blank" rel="noopener noreferrer">
+      <Button variant="outline" size="sm">
+        <GitPullRequestIcon size={14} />
+        Open in {providerDisplayName(provider)}
+        <ArrowSquareOutIcon size={12} />
+      </Button>
+    </a>
   );
 }
 
@@ -142,7 +151,15 @@ function resolveActiveTab(pathname: string): PRTab {
   return "overview";
 }
 
-export function buildPullRequestUrl(repository: Repository | undefined, prNumber: number) {
+export function buildPullRequestUrl(
+  repository: Repository | undefined,
+  prNumber: number,
+  providerInfo?: GitProviderInfo,
+) {
   if (repository == null) return undefined;
+  if (providerInfo?.provider === "gitlab") {
+    const base = (providerInfo.baseUrl ?? "https://gitlab.com").replace(/\/$/, "");
+    return `${base}/${repository.fullName}/-/merge_requests/${prNumber}`;
+  }
   return `https://github.com/${repository.fullName}/pull/${prNumber}`;
 }
