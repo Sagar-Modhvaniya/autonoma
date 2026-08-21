@@ -30,6 +30,8 @@ export type InvestigationModelName = "smart-video" | "classifier" | "reporter" |
 
 export interface InvestigationModelConfig {
     openaiApiKey: string;
+    /** Optional OpenAI-compatible gateway (e.g. a LiteLLM in front of Azure) for self-hosted deployments. */
+    openaiBaseUrl?: string;
     /** Override the classifier model id (default gpt-5.6-luna). */
     classifierModelId?: string;
     /** Override the Reporter model id (default gpt-5.6-terra - the stronger vision+reasoning tier). */
@@ -113,7 +115,7 @@ const NATIVE_OPENAI_MODELS: Record<string, NativeOpenAIModel> = {
  * key is injected; OpenRouter/Gemini/Groq keys are read by @autonoma/ai from its own env.
  */
 export function openModelSession(config: InvestigationModelConfig): ModelSession {
-    const openai = createOpenAI({ apiKey: config.openaiApiKey });
+    const openai = createOpenAI({ apiKey: config.openaiApiKey, baseURL: config.openaiBaseUrl });
     const classifierEntry = resolveNativeEntry(
         openai,
         config.classifierModelId ?? DEFAULT_CLASSIFIER_MODEL,

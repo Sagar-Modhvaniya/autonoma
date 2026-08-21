@@ -41,7 +41,8 @@
         "@temporalio/worker": "catalog:",
         "ai": "catalog:",
         "playwright": "catalog:",
-        "zod": "catalog:"
+        "zod": "catalog:",
+        "@autonoma/scenario": "workspace:*"
     },
     "devDependencies": {
         "@autonoma/errors": "workspace:*",

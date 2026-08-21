@@ -1,9 +1,14 @@
 import { db } from "@autonoma/db";
-import { GitLabApp, type GitHubApp, LocalDevGitHubApp, OctokitGitHubApp } from "@autonoma/github";
+import {
+    GitLabApp,
+    type GitHubApp,
+    LocalDevGitHubApp,
+    MultiProviderApp,
+    OctokitGitHubApp,
+} from "@autonoma/github";
 import { logger } from "@autonoma/logger";
 import { encryptionHelper } from "../encryption";
 import type { env as apiEnv } from "../env";
-import { MultiProviderApp } from "./multi-provider-app";
 import { PrismaEtagStore } from "./prisma-etag-store";
 
 type ApiEnv = typeof apiEnv;
@@ -14,7 +19,16 @@ type ApiEnv = typeof apiEnv;
  * GitLab connections stored in the database route to their own instances.
  */
 export function buildGitHubApp(env: ApiEnv): GitHubApp {
-    return new MultiProviderApp(db, buildBaseApp(env), encryptionHelper);
+    return new MultiProviderApp(buildBaseApp(env), async (installationId) => {
+        const row = await db.gitHubInstallation.findUnique({
+            where: { installationId },
+            select: { provider: true, providerBaseUrl: true, providerTokenEnc: true },
+        });
+        if (row?.provider !== "gitlab" || row.providerBaseUrl == null || row.providerTokenEnc == null) {
+            return undefined;
+        }
+        return { baseUrl: row.providerBaseUrl, token: encryptionHelper.decrypt(row.providerTokenEnc) };
+    });
 }
 
 function buildBaseApp(env: ApiEnv): GitHubApp {
