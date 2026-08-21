@@ -90,7 +90,7 @@ export class QwenObjectDetector extends ObjectDetector {
                 width: Math.round((Math.abs(x2 - x1) / NORMALIZED_MAX) * width),
                 height: Math.round((Math.abs(y2 - y1) / NORMALIZED_MAX) * height),
             },
-            label,
+            label: label ?? undefined,
         };
     }
 }

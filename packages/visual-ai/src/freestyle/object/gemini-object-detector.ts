@@ -104,7 +104,7 @@ export class GeminiObjectDetector extends ObjectDetector {
                 width: Math.round(((xmax - xmin) / 1000) * width),
                 height: Math.round(((ymax - ymin) / 1000) * height),
             },
-            label,
+            label: label ?? undefined,
         };
     }
 }
