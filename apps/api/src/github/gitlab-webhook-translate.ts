@@ -22,6 +22,8 @@ const gitlabProjectSchema = z.object({
     name: z.string().optional(),
     path_with_namespace: z.string(),
     default_branch: z.string().optional(),
+    git_http_url: z.string().optional(),
+    web_url: z.string().optional(),
 });
 
 const gitlabMergeRequestEventSchema = z.object({
@@ -140,6 +142,8 @@ function toGitHubRepository(project: z.infer<typeof gitlabProjectSchema>): Recor
         name: project.name ?? project.path_with_namespace.split("/").pop() ?? "",
         full_name: project.path_with_namespace,
         default_branch: project.default_branch ?? "main",
+        // Preview deploys clone through this; GitLab names it git_http_url.
+        clone_url: project.git_http_url ?? (project.web_url != null ? `${project.web_url}.git` : ""),
         owner: { login: owner },
     };
 }

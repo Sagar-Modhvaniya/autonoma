@@ -22,8 +22,11 @@ import type {
 } from "../github-installation-client";
 import { encodeProjectPath, type GitLabApi } from "./gitlab-api";
 
-const CLONE_TIMEOUT_MS = 120_000;
-const FETCH_TIMEOUT_MS = 60_000;
+// More generous than the GitHub client's budgets: github.com's bandwidth is a
+// floor self-managed GitLab instances routinely sit far below (measured ~5min
+// for a 171MB depth-50 clone from a modest VM).
+const CLONE_TIMEOUT_MS = 600_000;
+const FETCH_TIMEOUT_MS = 300_000;
 const CHECKOUT_TIMEOUT_MS = 60_000;
 const CLONE_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
