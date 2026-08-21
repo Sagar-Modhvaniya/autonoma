@@ -7,11 +7,20 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 function readApiPort(): string {
-    try {
-        return readFileSync(path.resolve(import.meta.dirname, "..", "..", ".api-port"), "utf-8").trim();
-    } catch {
-        return process.env.API_PORT ?? "4000";
+    // The API dev task runs with cwd apps/api, so the port file lands there;
+    // keep the repo-root location as a fallback.
+    const candidates = [
+        path.resolve(import.meta.dirname, "..", "api", ".api-port"),
+        path.resolve(import.meta.dirname, "..", "..", ".api-port"),
+    ];
+    for (const file of candidates) {
+        try {
+            return readFileSync(file, "utf-8").trim();
+        } catch {
+            // try next location
+        }
     }
+    return process.env.API_PORT ?? "4400";
 }
 
 // Framework core that loads on every route. Isolating it into stable, long-cached
@@ -80,7 +89,8 @@ export default defineConfig({
         },
     },
     server: {
-        port: 3000,
+        // Local self-host: artha.link's own frontend dev server owns :3000.
+        port: 3300,
         proxy: {
             "/v1": {
                 target: `http://localhost:${readApiPort()}`,

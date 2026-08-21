@@ -44,4 +44,8 @@ export const groqProvider = new LLMProvider(() => createGroq({ apiKey: env.GROQ_
 
 export const googleProvider = new LLMProvider(() => createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY }));
 
-export const openRouterProvider = new LLMProvider(() => createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }));
+// Self-hosted: OPENROUTER_BASE_URL points every OpenRouter-routed model at any
+// OpenAI-compatible gateway (e.g. a local LiteLLM in front of Azure OpenAI).
+export const openRouterProvider = new LLMProvider(() =>
+    createOpenRouter({ apiKey: env.OPENROUTER_API_KEY, baseURL: env.OPENROUTER_BASE_URL }),
+);

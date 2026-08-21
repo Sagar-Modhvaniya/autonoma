@@ -9,7 +9,7 @@ const geminiDetectedObjectSchema = z.object({
     box_2d: z
         .array(z.number())
         .describe("the bounding box of the object. must be an array of 4 numbers between 0 and 1000"),
-    label: z.string().optional().describe("the label of the object"),
+    label: z.string().nullable().describe("the label of the object"),
 });
 
 type GeminiDetectedObject = z.infer<typeof geminiDetectedObjectSchema>;

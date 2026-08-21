@@ -12,7 +12,7 @@ const qwenBoundingBoxSchema = z.object({
         .array(z.number())
         .length(4)
         .describe("the bounding box of the element as [x1, y1, x2, y2], normalized 0-1000"),
-    label: z.string().optional().describe("the label of the element"),
+    label: z.string().nullable().describe("the label of the element"),
 });
 
 type QwenBoundingBox = z.infer<typeof qwenBoundingBoxSchema>;

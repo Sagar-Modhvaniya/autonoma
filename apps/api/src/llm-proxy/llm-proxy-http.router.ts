@@ -10,7 +10,10 @@ import { env } from "../env";
 
 const logger = rootLogger.child({ name: "llmProxyHttpRouter" });
 
-const OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
+// Self-hosted: LLM_PROXY_UPSTREAM_URL points the proxy at any OpenAI-compatible
+// gateway (e.g. a local LiteLLM in front of Azure OpenAI) instead of OpenRouter.
+const OPENROUTER_CHAT_COMPLETIONS_URL =
+    env.LLM_PROXY_UPSTREAM_URL ?? "https://openrouter.ai/api/v1/chat/completions";
 
 // Upper bound on a single upstream request. Bounds a hung/stalled OpenRouter
 // connection (which would otherwise hold the request and the detached meter
@@ -149,7 +152,10 @@ llmProxyHttpRouter.post("/chat/completions", async (c) => {
     // OpenRouter to include usage accounting (incl. dollar cost) so we can meter -
     // for streams this surfaces in a trailing chunk; non-stream in the body.
     const maxTokens = Math.min(parsedBody.data.max_tokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
-    const forwardBody = { ...parsedBody.data, max_tokens: maxTokens, usage: { include: true } };
+    // `usage: {include: true}` is OpenRouter-specific; other OpenAI-compatible
+    // upstreams (Azure via LiteLLM) reject it as an unknown parameter.
+    const usageAccounting = env.LLM_PROXY_UPSTREAM_URL == null ? { usage: { include: true } } : {};
+    const forwardBody = { ...parsedBody.data, max_tokens: maxTokens, ...usageAccounting };
 
     logger.info("Forwarding to OpenRouter", { organizationId, model, isStreaming });
 

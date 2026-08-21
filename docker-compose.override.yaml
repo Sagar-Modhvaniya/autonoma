@@ -1,0 +1,44 @@
+# Local overrides for running Autonoma alongside the artha.link dev stack.
+# - artha's redis_cache container already owns host port 6379, so Autonoma's
+#   Redis is exposed on 6380 instead (containers still talk on 6379 internally).
+# - POSTGRES_DB creates the "autonoma" database the API expects; the root
+#   compose file omits it.
+services:
+  redis:
+    ports: !override
+      - "6380:6379"
+
+  postgresql:
+    environment:
+      POSTGRES_DB: autonoma
+
+  # OpenAI-compatible gateway that serves every model name Autonoma requests
+  # from the Azure OpenAI deployment configured in litellm-config.yaml.
+  # Needs AZURE_API_KEY in .env.
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
+    # Only the Azure key - passing the whole .env leaks DATABASE_URL, which
+    # LiteLLM treats as its own Postgres and aborts startup trying to reach it.
+    environment:
+      AZURE_API_KEY: ${AZURE_API_KEY}
+    ports:
+      - "9200:4000"
+    volumes:
+      - ./litellm-config.yaml:/etc/litellm/config.yaml:ro
+
+  # Local S3 emulator so screenshot/artifact storage works without AWS.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  miniodata:

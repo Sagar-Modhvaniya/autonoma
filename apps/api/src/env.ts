@@ -143,6 +143,10 @@ export const env = createEnv({
         // widen/narrow without a deploy. The proxy is a free, credit-metered gateway,
         // so the allowlist is the primary guard against it being used as a general LLM API.
         LLM_PROXY_ALLOWED_MODELS: z.string().optional(),
+        // Self-hosted: override the proxy's upstream with any OpenAI-compatible
+        // chat-completions URL (e.g. a local LiteLLM fronting Azure OpenAI).
+        // Unset = OpenRouter.
+        LLM_PROXY_UPSTREAM_URL: z.string().url().optional(),
         // Abuse cap: the most credits a never-paid org may spend through the
         // managed LLM proxy, out of its free-start grant. A farmed free account
         // can drain at most this much OpenRouter spend via the CLI; purchases

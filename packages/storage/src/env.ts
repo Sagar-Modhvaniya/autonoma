@@ -10,6 +10,8 @@ export const env = createEnv({
         // or neither - one without the other is treated as absent.
         S3_ACCESS_KEY_ID: z.string().min(1).optional(),
         S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+        // Non-AWS S3 endpoint (e.g. local MinIO) for self-hosted setups.
+        S3_ENDPOINT: z.string().min(1).optional(),
     },
     runtimeEnv: process.env,
     emptyStringAsUndefined: true,

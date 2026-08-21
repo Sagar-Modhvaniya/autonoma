@@ -1,0 +1,15 @@
+# Local gateway: any model name Autonoma requests is served by the Azure
+# OpenAI deployment below. drop_params strips OpenRouter-only params (e.g.
+# `usage`, provider routing hints) that Azure would reject.
+model_list:
+  - model_name: "*"
+    litellm_params:
+      model: azure/gpt-5.3-chat
+      api_base: https://artha-developer-use.cognitiveservices.azure.com
+      api_key: os.environ/AZURE_API_KEY
+      api_version: "2024-12-01-preview"
+      # OpenRouter-specific params Azure rejects as unknown.
+      additional_drop_params: ["provider", "usage", "transforms", "route"]
+
+litellm_settings:
+  drop_params: true

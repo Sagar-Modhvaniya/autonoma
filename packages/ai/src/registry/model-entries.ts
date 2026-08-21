@@ -101,8 +101,22 @@ export const MODEL_ENTRIES: Record<
     },
 };
 
-export const OPENROUTER_MODEL_ENTRIES: Record<"GEMINI_3_FLASH_PREVIEW" | "MINISTRAL_8B" | "GPT_OSS_120B", ModelEntry> =
+export const OPENROUTER_MODEL_ENTRIES: Record<
+    "GEMINI_3_FLASH_PREVIEW" | "GEMINI_3_5_FLASH_LITE" | "MINISTRAL_8B" | "GPT_OSS_120B",
+    ModelEntry
+> =
     {
+        // Self-hosted: Gemini routed via OpenRouter so a single OPENROUTER_API_KEY covers
+        // every slot; video goes inline-mp4 instead of Google's Files API.
+        GEMINI_3_5_FLASH_LITE: {
+            createModel: () => openRouterProvider.getModel("google/gemini-3.5-flash-lite"),
+            pricing: inputCacheCostFunction({
+                inputCostPerM: 0.3,
+                cachedInputCostPerM: 0.03,
+                outputCostPerM: 2.5,
+            }),
+            createUploader: () => new InlineMp4VideoUploader(),
+        },
         GEMINI_3_FLASH_PREVIEW: {
             createModel: () => openRouterProvider.getModel("google/gemini-3-flash-preview"),
             pricing: inputCacheCostFunction({
