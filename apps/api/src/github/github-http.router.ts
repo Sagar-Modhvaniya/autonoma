@@ -1,7 +1,7 @@
 import { analytics } from "@autonoma/analytics";
 import { db } from "@autonoma/db";
 import { InsufficientPreviewCreditsError } from "@autonoma/errors";
-import type { GitHubApp } from "@autonoma/github";
+import { GITLAB_INSTALLATION_ID, type GitHubApp } from "@autonoma/github";
 import { logger } from "@autonoma/logger";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -18,6 +18,7 @@ import { configureInstallationUrl } from "./github-urls";
 import { MergeGateSlackNotifier } from "./merge-gate-slack-notifier";
 import { MergeGateService } from "./merge-gate.service";
 import { PullRequestCacheService } from "./pull-request-cache.service";
+import { translateGitLabWebhook } from "./gitlab-webhook-translate";
 import { resolveInstallOrganization } from "./resolve-install-organization";
 
 type GitHubEnv = {
@@ -254,6 +255,58 @@ githubHttpRouter.post("/webhook", async (ctx) => {
             logger.fatal("Error processing GitHub webhook", error, { event, deliveryId, cause: causeMessage });
         },
     );
+
+    return ctx.json({ ok: true });
+});
+
+/**
+ * GitLab webhook receiver. GitLab deliveries carry the shared secret verbatim
+ * in `X-Gitlab-Token` (no HMAC) and name the event in `X-Gitlab-Event`; the
+ * payload is translated into the GitHub shape and dispatched through the same
+ * pipeline as GitHub deliveries, so downstream consumers stay provider-agnostic.
+ * Only meaningful when the API is configured with a GitLabApp - any other app's
+ * `verifyWebhook` rejects the equality-style token check.
+ */
+githubHttpRouter.post("/gitlab-webhook", async (ctx) => {
+    const body = await ctx.req.text();
+    const token = ctx.req.header("x-gitlab-token") ?? "";
+    const event = ctx.req.header("x-gitlab-event") ?? "";
+
+    const isValid = await githubApp.verifyWebhook(body, token);
+    if (!isValid) {
+        logger.warn("Invalid GitLab webhook token");
+        return ctx.json({ error: "Invalid token" }, 401);
+    }
+
+    const translated = translateGitLabWebhook(event, JSON.parse(body));
+    if (translated == null) {
+        logger.info("GitLab webhook: ignored event", { event });
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    const eventType = isWebhookEventKey(translated.eventKey) ? WEBHOOK_EVENT_TYPES[translated.eventKey] : undefined;
+    if (eventType == null) {
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    const organizationId = await githubService.findOrganizationIdByInstallationId(GITLAB_INSTALLATION_ID);
+    if (organizationId == null) {
+        logger.warn("GitLab webhook: no organization linked to the GitLab connection");
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    // Same ack-then-process contract as the GitHub route: GitLab retries slow
+    // deliveries too, and the dispatched work is durable.
+    void dispatchWebhookEvent(
+        eventType,
+        GITLAB_INSTALLATION_ID,
+        organizationId,
+        githubService,
+        prCacheService,
+        translated.payload,
+    ).catch((error) => {
+        logger.fatal("Error processing GitLab webhook", error, { event });
+    });
 
     return ctx.json({ ok: true });
 });
