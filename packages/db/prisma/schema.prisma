@@ -1392,6 +1392,13 @@ model WebhookCall {
 
 // ─── GitHub Integration ────────────────────────────────────────────
 
+enum GitProvider {
+  github
+  gitlab
+
+  @@map("git_provider")
+}
+
 enum GitHubInstallationStatus {
   active
   suspended
@@ -1408,6 +1415,15 @@ model GitHubInstallation {
   accountId      Int                      @map("account_id")
   accountType    String                   @map("account_type")
   status         GitHubInstallationStatus @default(active)
+  // Which git host backs this connection. GitHub rows are created by the App
+  // install callback; GitLab rows by the connect flow, with a locally
+  // allocated NEGATIVE installationId so it can never collide with GitHub's.
+  provider         GitProvider @default(github)
+  // GitLab-only: instance origin, encrypted API token, and the webhook secret
+  // deliveries are matched against. Null on GitHub rows.
+  providerBaseUrl  String?     @map("provider_base_url")
+  providerTokenEnc String?     @map("provider_token_enc")
+  webhookSecretEnc String?     @map("webhook_secret_enc")
   createdAt      DateTime                 @default(now()) @map("created_at")
   updatedAt      DateTime                 @updatedAt @map("updated_at")
 

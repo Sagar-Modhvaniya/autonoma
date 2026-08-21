@@ -39,6 +39,7 @@ import {
 import { trpc } from "lib/trpc";
 import { Component, Suspense, useState, type ReactNode } from "react";
 import { z } from "zod";
+import { ConnectGitLabSection } from "./-components/connect-gitlab";
 import { OnboardingPageHeader } from "./-components/onboarding-page-header";
 
 /** What the install callback hands back on failure, threaded to whichever step renders it. */
@@ -202,7 +203,7 @@ function AddAppContent({
   return (
     <>
       {failure != null && <InstallFailureBanner {...failure} className="mb-8" />}
-      <RepoAndNameStep appId={appId} settingsUrl={installation.settingsUrl} origin={origin} />
+      <RepoAndNameStep appId={appId} settingsUrl={installation.settingsUrl} provider={installation.provider} origin={origin} />
     </>
   );
 }
@@ -309,6 +310,8 @@ function InstallStep({
           <ArrowSquareOutIcon size={16} weight="bold" />
         </Button>
       </div>
+
+      <ConnectGitLabSection />
       {/* Below the button, not above it: the button is what the message is about, and the one
           case that lands here most often is fixed by pressing it. */}
       {failure != null && <InstallFailureBanner {...failure} className="max-w-2xl" />}
@@ -324,10 +327,12 @@ function InstallStep({
 function RepoAndNameStep({
   appId,
   settingsUrl,
+  provider,
   origin,
 }: {
   appId?: string;
   settingsUrl?: string;
+  provider?: "github" | "gitlab";
   origin?: OnboardingOrigin;
 }) {
   const navigate = useNavigate();
@@ -477,10 +482,11 @@ function RepoAndNameStep({
                 rel="noopener noreferrer"
                 className="text-primary-ink underline underline-offset-2 transition-colors hover:text-primary-ink/80"
               >
-                Grant access to it on GitHub
+                {provider === "gitlab" ? "Grant the token access to it on GitLab" : "Grant access to it on GitHub"}
               </a>
-              . Autonoma connects one GitHub account per workspace, so a repository under a different account has to be
-              shared with this installation.
+              {provider === "gitlab"
+                ? ". Autonoma connects one GitLab account per workspace; the access token must be able to see the project."
+                : ". Autonoma connects one GitHub account per workspace, so a repository under a different account has to be shared with this installation."}
             </p>
           )}
         </div>

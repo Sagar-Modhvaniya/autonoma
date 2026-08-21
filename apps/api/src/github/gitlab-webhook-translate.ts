@@ -66,13 +66,17 @@ function mergeRequestActionToGitHub(action: string | undefined, hasNewCommits: b
     return undefined;
 }
 
-export function translateGitLabWebhook(event: string, payload: unknown): TranslatedGitLabEvent | undefined {
-    if (event === "Merge Request Hook") return translateMergeRequestEvent(payload);
-    if (event === "Push Hook") return translatePushEvent(payload);
+export function translateGitLabWebhook(
+    event: string,
+    payload: unknown,
+    installationId: number = GITLAB_INSTALLATION_ID,
+): TranslatedGitLabEvent | undefined {
+    if (event === "Merge Request Hook") return translateMergeRequestEvent(payload, installationId);
+    if (event === "Push Hook") return translatePushEvent(payload, installationId);
     return undefined;
 }
 
-function translateMergeRequestEvent(payload: unknown): TranslatedGitLabEvent | undefined {
+function translateMergeRequestEvent(payload: unknown, installationId: number): TranslatedGitLabEvent | undefined {
     const parsed = gitlabMergeRequestEventSchema.safeParse(payload);
     if (!parsed.success) return undefined;
 
@@ -89,7 +93,7 @@ function translateMergeRequestEvent(payload: unknown): TranslatedGitLabEvent | u
         eventKey: `pull_request.${action}`,
         payload: {
             action,
-            installation: { id: GITLAB_INSTALLATION_ID },
+            installation: { id: installationId },
             repository,
             pull_request: {
                 number: mr.iid,
@@ -118,7 +122,7 @@ function translateMergeRequestEvent(payload: unknown): TranslatedGitLabEvent | u
     };
 }
 
-function translatePushEvent(payload: unknown): TranslatedGitLabEvent | undefined {
+function translatePushEvent(payload: unknown, installationId: number): TranslatedGitLabEvent | undefined {
     const parsed = gitlabPushEventSchema.safeParse(payload);
     if (!parsed.success) return undefined;
 
@@ -129,7 +133,7 @@ function translatePushEvent(payload: unknown): TranslatedGitLabEvent | undefined
             ref: parsed.data.ref,
             before: parsed.data.before ?? "",
             after: parsed.data.after ?? "",
-            installation: { id: GITLAB_INSTALLATION_ID },
+            installation: { id: installationId },
             repository: toGitHubRepository(project),
         },
     };

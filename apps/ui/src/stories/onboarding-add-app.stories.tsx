@@ -31,6 +31,8 @@ const noRepoAccessFixtures: TrpcFixtures = {
       accountLogin: "acme-inc",
       accountId: 5821094,
       accountType: "Organization",
+    provider: "github" as const,
+    providerBaseUrl: null,
       status: "active",
       createdAt: new Date("2026-07-14T09:12:00Z"),
       updatedAt: new Date("2026-07-14T09:12:00Z"),
