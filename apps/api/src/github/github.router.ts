@@ -32,6 +32,12 @@ export const githubRouter = router({
         services.gitlabConnections.disconnect(organizationId),
     ),
 
+    getAuthorAvatars: protectedProcedure
+        .input(z.object({ logins: z.array(z.string().min(1).max(255)).min(1).max(50) }))
+        .query(({ ctx: { services, organizationId }, input }) =>
+            services.gitlabConnections.resolveAuthorAvatars(organizationId, input.logins),
+        ),
+
     getInstallation: protectedProcedure.query(async ({ ctx: { services, organizationId } }) => {
         const installation = await services.github.getInstallation(organizationId);
         if (installation == null) return null;

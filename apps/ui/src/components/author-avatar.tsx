@@ -1,4 +1,5 @@
-import { useGitProvider } from "components/provider-logo";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "lib/trpc";
 import { useState } from "react";
 
 /**
@@ -14,21 +15,26 @@ function loginHue(login: string): number {
 }
 
 /**
- * A commit or PR author's avatar. GitHub workspaces load the real avatar from
- * github.com by login; every other provider renders an initial on a stable
- * per-login color instead - GitLab has no public avatar-by-username URL, and
- * fetching github.com/<login>.png for a GitLab user either 404s (broken image)
- * or, worse, shows an unrelated GitHub user who happens to share the name.
- * A GitHub avatar that fails to load falls back to the same initial.
+ * A commit or PR author's avatar, resolved through the workspace's connected
+ * provider: github.com's public avatar endpoint for GitHub, the instance's
+ * users API for GitLab (whose avatar_url - an upload or a gravatar - is
+ * publicly fetchable). Guessing github.com/<login>.png for every provider
+ * either 404s or, worse, shows an unrelated GitHub user who shares the name.
+ * While resolving, and whenever the image fails to load, an initial on a
+ * stable per-login color renders instead.
  */
 export function AuthorAvatar({ login, className, title }: { login: string; className?: string; title?: string }) {
-  const provider = useGitProvider();
   const [failed, setFailed] = useState(false);
+  const { data } = useQuery({
+    ...trpc.github.getAuthorAvatars.queryOptions({ logins: [login] }),
+    staleTime: 60 * 60 * 1000,
+  });
+  const avatarUrl = data?.[login];
 
-  if (provider === "github" && !failed) {
+  if (avatarUrl != null && !failed) {
     return (
       <img
-        src={`https://github.com/${encodeURIComponent(login)}.png?size=48`}
+        src={avatarUrl}
         alt={login}
         title={title}
         onError={() => setFailed(true)}
