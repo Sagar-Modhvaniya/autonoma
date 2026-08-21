@@ -1,8 +1,11 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { PrismaClient } from "@autonoma/db";
-import { GitLabApiError, GitLabApp } from "@autonoma/github";
+import { GitLabApi, GitLabApiError, GitLabApp } from "@autonoma/github";
 import { type Logger, logger } from "@autonoma/logger";
 import type { EncryptionHelper } from "@autonoma/scenario";
+
+/** Avatar lookups are stable data; an hour of caching spares GitLab a request per author per page view. */
+const AVATAR_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
  * The connect probe fails for exactly three human reasons - wrong address,
@@ -146,6 +149,67 @@ export class GitLabConnectionService {
         }
         return undefined;
     }
+
+    /**
+     * Resolve author logins to avatar URLs through whatever provider the org
+     * is connected to. GitHub logins map straight to github.com's public
+     * avatar endpoint; GitLab has no public avatar-by-username URL, so logins
+     * are looked up through the connection's token (the avatar_url GitLab
+     * returns - an upload or a gravatar - is itself publicly fetchable).
+     * Unknown logins resolve to null and the UI falls back to initials.
+     */
+    async resolveAuthorAvatars(organizationId: string, logins: string[]): Promise<Record<string, string | null>> {
+        const unique = [...new Set(logins)];
+        const result: Record<string, string | null> = {};
+
+        const installation = await this.db.gitHubInstallation.findUnique({
+            where: { organizationId },
+            select: { provider: true, providerBaseUrl: true, providerTokenEnc: true },
+        });
+
+        if (installation?.provider !== "gitlab") {
+            for (const login of unique) {
+                result[login] = `https://github.com/${encodeURIComponent(login)}.png?size=48`;
+            }
+            return result;
+        }
+
+        if (installation.providerBaseUrl == null || installation.providerTokenEnc == null) {
+            for (const login of unique) result[login] = null;
+            return result;
+        }
+
+        const api = new GitLabApi({
+            baseUrl: installation.providerBaseUrl,
+            token: this.encryption.decrypt(installation.providerTokenEnc),
+        });
+
+        for (const login of unique) {
+            const cacheKey = `${organizationId}:${login}`;
+            const cached = this.avatarCache.get(cacheKey);
+            if (cached != null && cached.expiresAt > Date.now()) {
+                result[login] = cached.url;
+                continue;
+            }
+            let url: string | null = null;
+            try {
+                const users = await api.request<Array<{ avatar_url?: string | null }>>("/users", {
+                    query: { username: login },
+                });
+                url = users[0]?.avatar_url ?? null;
+            } catch (error) {
+                this.logger.warn("Avatar lookup failed; falling back to initials", {
+                    organizationId,
+                    extra: { login, error: String(error) },
+                });
+            }
+            this.avatarCache.set(cacheKey, { url, expiresAt: Date.now() + AVATAR_CACHE_TTL_MS });
+            result[login] = url;
+        }
+        return result;
+    }
+
+    private readonly avatarCache = new Map<string, { url: string | null; expiresAt: number }>();
 
     /** Next free negative installation id. */
     private async allocateInstallationId(): Promise<number> {
