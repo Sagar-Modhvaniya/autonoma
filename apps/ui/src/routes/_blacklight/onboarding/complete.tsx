@@ -3,8 +3,10 @@ import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { EyeIcon } from "@phosphor-icons/react/Eye";
 import { GithubLogoIcon } from "@phosphor-icons/react/GithubLogo";
+import { GitlabLogoIcon } from "@phosphor-icons/react/GitlabLogo";
 import { XIcon } from "@phosphor-icons/react/X";
 import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
+import { useGitProviderInfo } from "components/provider-logo";
 import { SuiteHealthBars, SuiteHealthPill } from "components/suite-health/suite-health-meter";
 import { copyText } from "lib/clipboard";
 import { CLAUDE_MD_LINE, CLAUDE_MD_LINE_SHORT } from "lib/onboarding/claude-md-line";
@@ -229,18 +231,37 @@ function RepositoryLine({ appId }: { appId?: string }) {
         you as review comments on that pull request.
       </p>
 
-      {repoFullName != null && (
-        <div className="flex w-fit items-center gap-2.5 border border-border-dim bg-surface-base px-3 py-2.5">
-          <GithubLogoIcon size={18} weight="fill" className="text-text-primary" />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-mono text-2xs text-text-primary">github.com/{repoFullName}</span>
-            <span className="font-mono text-4xs uppercase tracking-widest text-text-secondary">
-              autonoma[bot] · write access · checks enabled
-            </span>
-          </span>
-          <span className="ml-1.5 size-1.5 bg-status-success" />
-        </div>
+      {repoFullName != null && <RepositoryCard repoFullName={repoFullName} />}
+    </div>
+  );
+}
+
+/** The repo card, hosted-where-it-actually-lives: host, logo, and account come from the connection. */
+function RepositoryCard({ repoFullName }: { repoFullName: string }) {
+  const info = useGitProviderInfo();
+  const host =
+    info?.provider === "gitlab"
+      ? (info.baseUrl ?? "https://gitlab.com").replace(/^https?:\/\//, "").replace(/\/$/, "")
+      : "github.com";
+
+  return (
+    <div className="flex w-fit items-center gap-2.5 border border-border-dim bg-surface-base px-3 py-2.5">
+      {info?.provider === "gitlab" ? (
+        <GitlabLogoIcon size={18} weight="fill" className="text-text-primary" />
+      ) : (
+        <GithubLogoIcon size={18} weight="fill" className="text-text-primary" />
       )}
+      <span className="flex flex-col gap-0.5">
+        <span className="font-mono text-2xs text-text-primary">
+          {host}/{repoFullName}
+        </span>
+        <span className="font-mono text-4xs uppercase tracking-widest text-text-secondary">
+          {info?.provider === "gitlab"
+            ? "token connection · write access"
+            : "autonoma[bot] · write access · checks enabled"}
+        </span>
+      </span>
+      <span className="ml-1.5 size-1.5 bg-status-success" />
     </div>
   );
 }

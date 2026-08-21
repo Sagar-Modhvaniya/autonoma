@@ -28,12 +28,12 @@ import {
   Textarea,
 } from "@autonoma/blacklight";
 import { APPLICATION_INSTRUCTIONS_MAX_LENGTH } from "@autonoma/types";
-import { GithubLogoIcon } from "@phosphor-icons/react/GithubLogo";
 import { GlobeIcon } from "@phosphor-icons/react/Globe";
 import { LinkBreakIcon } from "@phosphor-icons/react/LinkBreak";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { createFileRoute } from "@tanstack/react-router";
 import { DeleteApplicationDialog } from "components/delete-application-dialog";
+import { ProviderLogoIcon } from "components/provider-logo";
 import { useUpdateApplicationData, useUpdateApplicationSettings } from "lib/query/applications.queries";
 import {
   useApplicationRepositoryFromGitHub,
@@ -392,8 +392,8 @@ function WebDeploymentPanel() {
 }
 
 /**
- * Which repository this application watches. App-scoped, so it belongs here rather than with the GitHub App
- * installation, which is organization-wide - disconnecting that unlinks every repository from every app.
+ * Which repository this application watches. App-scoped, so it belongs here rather than with the git provider
+ * connection, which is organization-wide - disconnecting that unlinks every repository from every app.
  */
 function LinkedRepositoryPanel() {
   const currentApp = useCurrentApplication();
@@ -412,7 +412,7 @@ function LinkedRepositoryPanel() {
         </p>
 
         <div className="flex items-center gap-3 rounded-lg border border-border-dim bg-surface-base px-4 py-3">
-          <GithubLogoIcon size={16} className="shrink-0 text-text-secondary" />
+          <ProviderLogoIcon size={16} className="shrink-0 text-text-secondary" />
           {isPending ? (
             <Skeleton className="h-4 min-w-0 flex-1" />
           ) : (
