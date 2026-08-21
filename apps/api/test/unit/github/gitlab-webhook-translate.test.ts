@@ -6,6 +6,7 @@ const project = {
     name: "web",
     path_with_namespace: "acme/web",
     default_branch: "main",
+    git_http_url: "https://gitlab.example.com/acme/web.git",
 };
 
 function mergeRequestEvent(overrides: Record<string, unknown>): Record<string, unknown> {
@@ -38,7 +39,12 @@ describe("translateGitLabWebhook", () => {
         expect(translated?.payload).toMatchObject({
             action: "opened",
             installation: { id: 1 },
-            repository: { id: 42, full_name: "acme/web", default_branch: "main" },
+            repository: {
+                id: 42,
+                full_name: "acme/web",
+                default_branch: "main",
+                clone_url: "https://gitlab.example.com/acme/web.git",
+            },
             pull_request: {
                 number: 7,
                 title: "Add login page",
