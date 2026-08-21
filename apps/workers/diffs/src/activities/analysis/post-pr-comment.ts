@@ -407,6 +407,9 @@ async function resolvePreviewUrl(db: PrismaClient, snapshotId: string): Promise<
 
 /** Resolve the app's base URL from the deployment env, matching how other PR-comment jobs build their links. */
 function resolveAppUrl(): string {
+    // Self-hosted instances name their UI origin explicitly; the SENTRY_ENV
+    // inference below only distinguishes autonoma.app's own environments.
+    if (env.APP_URL != null) return env.APP_URL;
     const sentryEnv = env.SENTRY_ENV;
     if (sentryEnv === "beta") return "https://beta.autonoma.app";
     if (sentryEnv.startsWith("alpha-")) {

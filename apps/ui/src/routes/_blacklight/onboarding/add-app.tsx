@@ -39,7 +39,7 @@ import {
 import { trpc } from "lib/trpc";
 import { Component, Suspense, useState, type ReactNode } from "react";
 import { z } from "zod";
-import { ConnectGitLabSection } from "./-components/connect-gitlab";
+import { ConnectGitLabSection } from "components/connect-gitlab";
 import { OnboardingPageHeader } from "./-components/onboarding-page-header";
 
 /** What the install callback hands back on failure, threaded to whichever step renders it. */

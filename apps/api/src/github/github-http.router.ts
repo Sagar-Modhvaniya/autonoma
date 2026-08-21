@@ -20,6 +20,7 @@ import { configureInstallationUrl } from "./github-urls";
 import { MergeGateSlackNotifier } from "./merge-gate-slack-notifier";
 import { MergeGateService } from "./merge-gate.service";
 import { PullRequestCacheService } from "./pull-request-cache.service";
+import { triggerAnalysisForCustomerDeployedPr } from "./customer-deploy-analysis";
 import { translateGitLabWebhook } from "./gitlab-webhook-translate";
 import { resolveInstallOrganization } from "./resolve-install-organization";
 
@@ -349,18 +350,21 @@ async function dispatchWebhookEvent(
         case "pull_request_opened":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("opened", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;
         case "pull_request_synchronize":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("synchronize", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;
         case "pull_request_reopened":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("reopened", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;

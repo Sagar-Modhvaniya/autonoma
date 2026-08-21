@@ -8,6 +8,10 @@ export const env = createEnv({
     extends: [loggerEnv, dbEnv],
     server: {
         SENTRY_DSN_WORKER_DIFFS: z.string().optional(),
+        // The UI origin PR-comment links point at. Required for self-hosted
+        // instances; managed environments fall back to inferring it from
+        // SENTRY_ENV (see resolveAppUrl).
+        APP_URL: z.string().url().optional(),
         POSTHOG_KEY: z.string().optional(),
         POSTHOG_HOST: z.string().optional().default("https://us.i.posthog.com"),
         // Optional as a set: a GitLab-only deployment runs this worker without a

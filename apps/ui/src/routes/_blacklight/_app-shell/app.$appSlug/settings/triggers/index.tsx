@@ -157,7 +157,7 @@ function AnalysisTriggersContent() {
           <OnRequestCard
             icon={ChatCircleIcon}
             title="Comment on the PR"
-            source="GitHub"
+            source="Git host"
             description="Any collaborator posts the command. Works every time, so a dev can re-run after pushing a fix."
           >
             <div className="flex items-center gap-2">
@@ -172,7 +172,7 @@ function AnalysisTriggersContent() {
           <OnRequestCard
             icon={TagIcon}
             title="Add a label"
-            source="GitHub · configurable"
+            source="Git host · configurable"
             description="Adding the label starts a run. Which label is up to the team - pick one that fits your existing conventions."
           >
             <div className="space-y-1.5">
@@ -238,7 +238,7 @@ function SectionLabel({ label, meta, repoFullName }: { label: string; meta: stri
       </div>
       {repoFullName != null && (
         <span className="font-mono text-2xs uppercase tracking-widest text-text-secondary">
-          GitHub · {repoFullName}
+          {repoFullName}
         </span>
       )}
     </div>
