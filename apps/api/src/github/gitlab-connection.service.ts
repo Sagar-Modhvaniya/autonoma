@@ -1,8 +1,26 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { PrismaClient } from "@autonoma/db";
-import { GitLabApp } from "@autonoma/github";
+import { GitLabApiError, GitLabApp } from "@autonoma/github";
 import { type Logger, logger } from "@autonoma/logger";
 import type { EncryptionHelper } from "@autonoma/scenario";
+
+/**
+ * The connect probe fails for exactly three human reasons - wrong address,
+ * rejected token, or a token that cannot see anything - and the message names
+ * which one, because "fetch failed" sends people to the wrong field.
+ */
+function describeProbeFailure(baseUrl: string, error: unknown): string {
+    if (error instanceof GitLabApiError) {
+        if (error.status === 401) {
+            return "GitLab rejected the access token. Check it was copied in full, has the `api` scope, and has not expired or been revoked.";
+        }
+        if (error.status === 403) {
+            return "GitLab refused the request with this token. It may lack the `api` scope, or the account may be blocked on the instance.";
+        }
+        return `${baseUrl} answered, but not like a GitLab API (HTTP ${error.status}). Check the URL points at the instance itself, not a group or project page.`;
+    }
+    return `Could not reach ${baseUrl}. Check the address, and that this Autonoma server can reach your GitLab instance over the network.`;
+}
 
 export interface ConnectGitLabResult {
     installationId: number;
@@ -33,9 +51,15 @@ export class GitLabConnectionService {
         const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
 
         // Probe before storing anything: a bad URL or token should fail here,
-        // not on the first repository read.
+        // not on the first repository read - and fail in words the person who
+        // typed the URL can act on, not a raw fetch error.
         const probe = new GitLabApp({ baseUrl: normalizedBaseUrl, token });
-        const installations = await probe.listInstallations();
+        let installations;
+        try {
+            installations = await probe.listInstallations();
+        } catch (error) {
+            throw new Error(describeProbeFailure(normalizedBaseUrl, error), { cause: error });
+        }
         const accountLogin = installations[0]?.accountLogin ?? "gitlab";
 
         const existing = await this.db.gitHubInstallation.findUnique({
