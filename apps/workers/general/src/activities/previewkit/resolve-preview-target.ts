@@ -121,11 +121,16 @@ async function resolveRepoFullName(organizationId: string, githubRepositoryId: n
         return undefined;
     }
 
+    if (env.GITHUB_APP_ID == null || env.GITHUB_APP_PRIVATE_KEY == null) {
+        throw new Error(
+            "Previewkit target resolution needs the GitHub App (GITHUB_APP_*); GitLab deployments use existing-deploys mode instead of Autonoma-hosted previews.",
+        );
+    }
     const app = new OctokitGitHubApp({
         appId: env.GITHUB_APP_ID,
         privateKey: env.GITHUB_APP_PRIVATE_KEY,
-        webhookSecret: env.GITHUB_APP_WEBHOOK_SECRET,
-        appSlug: env.GITHUB_APP_SLUG,
+        webhookSecret: env.GITHUB_APP_WEBHOOK_SECRET ?? "",
+        appSlug: env.GITHUB_APP_SLUG ?? "autonoma",
     });
     const client = await app.getInstallationClient(installation.installationId);
     const repo = await client.getRepository(githubRepositoryId);
