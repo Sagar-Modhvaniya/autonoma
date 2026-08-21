@@ -1,5 +1,5 @@
 import { db } from "@autonoma/db";
-import { type GitHubApp, LocalDevGitHubApp, OctokitGitHubApp } from "@autonoma/github";
+import { GitLabApp, type GitHubApp, LocalDevGitHubApp, OctokitGitHubApp } from "@autonoma/github";
 import { logger } from "@autonoma/logger";
 import type { env as apiEnv } from "../env";
 import { PrismaEtagStore } from "./prisma-etag-store";
@@ -10,6 +10,19 @@ export function buildGitHubApp(env: ApiEnv): GitHubApp {
     if (env.LOCAL_DEV) {
         logger.info("LOCAL_DEV=true - using LocalDevGitHubApp (fake GitHub integration)");
         return new LocalDevGitHubApp();
+    }
+
+    // An explicitly configured GitLab connection takes the GitHub App's place:
+    // same interfaces, repos are projects, pull requests are merge requests.
+    if (env.GITLAB_BASE_URL != null && env.GITLAB_TOKEN != null) {
+        logger.info("GITLAB_BASE_URL set - using GitLabApp", { extra: { baseUrl: env.GITLAB_BASE_URL } });
+        const config: ConstructorParameters<typeof GitLabApp>[0] = {
+            baseUrl: env.GITLAB_BASE_URL,
+            token: env.GITLAB_TOKEN,
+        };
+        if (env.GITLAB_WEBHOOK_SECRET != null) config.webhookSecret = env.GITLAB_WEBHOOK_SECRET;
+        if (env.GITLAB_SLUG != null) config.slug = env.GITLAB_SLUG;
+        return new GitLabApp(config);
     }
 
     const missing = getMissingGitHubCredentials(env);
