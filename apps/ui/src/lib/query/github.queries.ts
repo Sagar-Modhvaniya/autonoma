@@ -82,6 +82,38 @@ export function useLinkRepository() {
     });
 }
 
+export function useConnectGitLab() {
+    const queryClient = useQueryClient();
+    const router = useRouter();
+    return useAPIMutation({
+        ...trpc.github.connectGitLab.mutationOptions({
+            onSettled: () => {
+                void queryClient.invalidateQueries({ queryKey: trpc.github.listRepositories.queryKey() });
+                void queryClient.invalidateQueries({ queryKey: trpc.github.getInstallation.queryKey() });
+                void router.invalidate();
+            },
+        }),
+        successToast: { title: "GitLab connected" },
+        errorToast: { title: "Failed to connect GitLab" },
+    });
+}
+
+export function useDisconnectGitLab() {
+    const queryClient = useQueryClient();
+    const router = useRouter();
+    return useAPIMutation({
+        ...trpc.github.disconnectGitLab.mutationOptions({
+            onSettled: () => {
+                void queryClient.invalidateQueries({ queryKey: trpc.github.listRepositories.queryKey() });
+                void queryClient.invalidateQueries({ queryKey: trpc.github.getInstallation.queryKey() });
+                void router.invalidate();
+            },
+        }),
+        successToast: { title: "GitLab disconnected" },
+        errorToast: { title: "Failed to disconnect GitLab" },
+    });
+}
+
 export function useUnlinkRepository() {
     const queryClient = useQueryClient();
     const router = useRouter();

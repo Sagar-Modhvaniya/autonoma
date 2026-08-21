@@ -22,6 +22,16 @@ export const githubRouter = router({
         },
     ),
 
+    connectGitLab: writeProcedure
+        .input(z.object({ baseUrl: z.string().url(), token: z.string().min(1) }))
+        .mutation(({ ctx: { services, organizationId }, input }) =>
+            services.gitlabConnections.connect(organizationId, input.baseUrl, input.token),
+        ),
+
+    disconnectGitLab: writeProcedure.mutation(({ ctx: { services, organizationId } }) =>
+        services.gitlabConnections.disconnect(organizationId),
+    ),
+
     getInstallation: protectedProcedure.query(async ({ ctx: { services, organizationId } }) => {
         const installation = await services.github.getInstallation(organizationId);
         if (installation == null) return null;
@@ -42,12 +52,23 @@ export const githubRouter = router({
 
         const slug = services.github.getSlug();
 
+        // GitLab connections are token-based: "manage" means the instance's own
+        // settings, not a GitHub App installation page.
+        const settingsUrl =
+            installation.provider === "gitlab"
+                ? (installation.providerBaseUrl ?? "")
+                : configureInstallationUrl(installation.installationId, {
+                      login: installation.accountLogin,
+                      type: installation.accountType,
+                  });
+
+        // Strip the encrypted credential blobs: they are server-side secrets and
+        // have no business crossing to the client, even encrypted.
+        const { providerTokenEnc: _token, webhookSecretEnc: _secret, ...safeInstallation } = installation;
+
         return {
-            ...installation,
-            settingsUrl: configureInstallationUrl(installation.installationId, {
-                login: installation.accountLogin,
-                type: installation.accountType,
-            }),
+            ...safeInstallation,
+            settingsUrl,
             appSlug: slug,
         };
     }),

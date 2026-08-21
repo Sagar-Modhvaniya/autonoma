@@ -18,6 +18,8 @@ const connectedInstallation = {
   accountLogin: "acme",
   accountId: 4820193,
   accountType: "Organization",
+    provider: "github" as const,
+    providerBaseUrl: null,
   status: "active",
   createdAt: FIXTURE_EPOCH,
   updatedAt: FIXTURE_EPOCH,
