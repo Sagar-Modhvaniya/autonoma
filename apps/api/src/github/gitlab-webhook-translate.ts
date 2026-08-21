@@ -44,6 +44,8 @@ const gitlabMergeRequestEventSchema = z.object({
         updated_at: z.string().optional(),
         merge_commit_sha: z.string().nullish(),
         oldrev: z.string().optional(),
+        work_in_progress: z.boolean().optional(),
+        draft: z.boolean().optional(),
     }),
 });
 
@@ -102,7 +104,7 @@ function translateMergeRequestEvent(payload: unknown, installationId: number): T
                 state: merged || mr.state === "closed" ? "closed" : "open",
                 merged,
                 merge_commit_sha: mr.merge_commit_sha ?? null,
-                draft: false,
+                draft: mr.draft ?? mr.work_in_progress ?? false,
                 user: { login: user?.username ?? "" },
                 html_url: mr.url ?? "",
                 created_at: mr.created_at ?? now,

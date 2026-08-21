@@ -4,6 +4,7 @@ import {
     type GitHubApp,
     LocalDevGitHubApp,
     MultiProviderApp,
+    NullGitHubApp,
     OctokitGitHubApp,
 } from "@autonoma/github";
 import { logger } from "@autonoma/logger";
@@ -52,9 +53,13 @@ function buildBaseApp(env: ApiEnv): GitHubApp {
 
     const missing = getMissingGitHubCredentials(env);
     if (missing.length > 0) {
-        throw new Error(
-            `Missing GitHub app credentials: ${missing.join(", ")}. Set them, or set LOCAL_DEV=true to use the fake app.`,
-        );
+        // Not an error: per-organization connections (GitLab today) work with
+        // no env-level provider at all - the MultiProviderApp resolves them
+        // before this fallback is consulted.
+        logger.info("No env-level git provider configured - relying on per-organization connections", {
+            extra: { missing },
+        });
+        return new NullGitHubApp();
     }
 
     // Postgres-backed ETag store enables conditional requests (free 304s) on every GitHub call.

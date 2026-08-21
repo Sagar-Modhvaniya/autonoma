@@ -53,6 +53,7 @@ export { FakeGitHubInstallationClient } from "./fake/fake-github-installation-cl
 export { GitLabApp, GITLAB_INSTALLATION_ID, type GitLabAppConfig } from "./gitlab/gitlab-app";
 export { GitLabApi, GitLabApiError, encodeProjectPath, type GitLabApiConfig } from "./gitlab/gitlab-api";
 export { GitLabInstallationClient } from "./gitlab/gitlab-installation-client";
+export { NullGitHubApp } from "./gitlab/null-github-app";
 export {
     MultiProviderApp,
     type GitLabConnection,
