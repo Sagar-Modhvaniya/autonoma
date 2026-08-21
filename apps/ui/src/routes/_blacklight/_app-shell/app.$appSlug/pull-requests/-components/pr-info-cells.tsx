@@ -1,3 +1,4 @@
+import { AuthorAvatar } from "components/author-avatar";
 import { prActivityLabel } from "./pr-activity-label";
 import type { PullRequestRow } from "./pull-request-row";
 
@@ -15,11 +16,7 @@ export function PRAuthorCell({ authorLogin }: { authorLogin?: string }) {
   }
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <img
-        src={`https://github.com/${authorLogin}.png?size=40`}
-        alt=""
-        className="size-5 shrink-0 border border-border-dim bg-surface-raised object-cover"
-      />
+      <AuthorAvatar login={authorLogin} className="size-5 shrink-0" />
       <span className="min-w-0 truncate text-sm text-text-secondary">{authorLogin}</span>
     </span>
   );

@@ -25,6 +25,7 @@ import { BranchContributorService } from "../github/branch-contributor.service";
 import { BugFixOutcomeService } from "../github/bug-fix-outcome.service";
 import { FalsePositiveCandidateService } from "../github/false-positive-candidate.service";
 import { GitHubInstallationService } from "../github/github-installation.service";
+import { GitLabConnectionService } from "../github/gitlab-connection.service";
 import { MergeGateSlackNotifier } from "../github/merge-gate-slack-notifier";
 import { MergeGateService } from "../github/merge-gate.service";
 import { PullRequestCacheService } from "../github/pull-request-cache.service";
@@ -84,6 +85,7 @@ export interface Services {
     previewkitSecretStatus: PreviewkitSecretStatusService;
     previewkitLogs: PreviewkitLogsService;
     github: GitHubInstallationService;
+    gitlabConnections: GitLabConnectionService;
     falsePositiveCandidates: FalsePositiveCandidateService;
     mergeGate: MergeGateService;
     activationTriggerConfig: ActivationTriggerConfigService;
@@ -158,6 +160,7 @@ export function buildServices({
         env.PREVIEWKIT_LOKI_URL != null ? new LokiLogStore(env.PREVIEWKIT_LOKI_URL, "build") : undefined;
     const appLogStore = env.PREVIEWKIT_LOKI_URL != null ? new LokiLogStore(env.PREVIEWKIT_LOKI_URL, "app") : undefined;
     const githubService = new GitHubInstallationService(conn, githubApp);
+    const gitlabConnectionService = new GitLabConnectionService(conn, encryptionHelper);
     const repoReader = new RepoReader(conn, githubApp);
     const repoIntrospectionService = new RepoIntrospectionService(repoReader);
     const applicationsService = new ApplicationsService(conn, encryptionHelper, env.FALLBACK_DEFAULT_BRANCH);
@@ -185,6 +188,7 @@ export function buildServices({
         previewkitSecretsService,
         repoIntrospection: repoIntrospectionService,
         github: githubService,
+        gitlabConnections: gitlabConnectionService,
         applications: applicationsService,
         diffsTrigger: diffsTriggerService,
         getVercelEncryptionHelper,
@@ -232,6 +236,7 @@ export function buildServices({
         previewkitSecretStatus: new PreviewkitSecretStatusService(conn, previewkitSecretsService),
         previewkitLogs: new PreviewkitLogsService(previewkitEnvironmentsService, buildLogStore, appLogStore),
         github: githubService,
+        gitlabConnections: gitlabConnectionService,
         falsePositiveCandidates: falsePositiveCandidatesService,
         mergeGate: new MergeGateService(
             conn,

@@ -18,12 +18,14 @@ export function createModelSession(): ModelSession {
                 "Provision it on the diffs worker.",
         );
     }
-    return openModelSession({
+    const session: Parameters<typeof openModelSession>[0] = {
         openaiApiKey: env.OPENAI_API_KEY,
         classifierModelId: env.INVESTIGATION_CLASSIFIER_MODEL,
         impactModelId: env.INVESTIGATION_IMPACT_MODEL,
         videoModelId: env.INVESTIGATION_VIDEO_MODEL,
-    });
+    };
+    if (env.OPENAI_BASE_URL != null) session.openaiBaseUrl = env.OPENAI_BASE_URL;
+    return openModelSession(session);
 }
 
 let storageSingleton: S3Storage | undefined;

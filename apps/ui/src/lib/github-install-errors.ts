@@ -49,8 +49,19 @@ export const SUPPORTS_MULTIPLE_GITHUB_ACCOUNTS = false;
  * trips over it. Lives here rather than inline in the settings panel so it cannot drift from the
  * error copy that says the same thing, and so it disappears with the flag above.
  */
-export function singleAccountLimitNote(accountLogin: string): string | undefined {
+export function singleAccountLimitNote(
+    accountLogin: string,
+    provider: "github" | "gitlab" = "github",
+): string | undefined {
     if (SUPPORTS_MULTIPLE_GITHUB_ACCOUNTS) return undefined;
+    if (provider === "gitlab") {
+        return (
+            `Autonoma uses one git-provider connection per workspace, so a second one can't be added while ` +
+            `${accountLogin} is connected. To use a repository under a different GitLab group, grant this ` +
+            `connection's token access to it on GitLab. To switch to another instance, token, or provider, ` +
+            `Disconnect below first - that also unlinks every application's repository.`
+        );
+    }
     return (
         `Autonoma can't use two GitHub accounts at once yet, so installing it on a second account will not work. ` +
         `To use a repository under a different account, grant this installation access to it on GitHub. To move ` +

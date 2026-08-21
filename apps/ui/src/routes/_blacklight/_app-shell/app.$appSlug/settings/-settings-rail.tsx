@@ -84,8 +84,8 @@ const ORGANIZATION_ENTRIES = [
   },
   {
     id: "github",
-    label: "GitHub App",
-    description: "The installation every repository connects through",
+    label: "Git provider",
+    description: "The connection every repository goes through",
     icon: GithubLogoIcon,
     to: "/app/$appSlug/settings/github",
     exact: false,

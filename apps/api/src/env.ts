@@ -115,6 +115,14 @@ export const env = createEnv({
         OAUTH_PROXY_SECRET: z.string().min(1).optional(),
 
         // Vercel marketplace integration credentials.
+        // GitLab connection (alternative to the GitHub App). When BASE_URL and
+        // TOKEN are both set, the API talks to GitLab instead of GitHub - repos
+        // are projects, pull requests are merge requests. Works with
+        // self-managed instances; token needs `api` scope.
+        GITLAB_BASE_URL: z.string().url().optional(),
+        GITLAB_TOKEN: z.string().min(1).optional(),
+        GITLAB_WEBHOOK_SECRET: z.string().min(1).optional(),
+        GITLAB_SLUG: z.string().min(1).optional(),
         // Optional in test/dev environments; required in production for the
         // integration to function. The Vercel routes are mounted regardless,
         // but return 503 / throw clear errors when these are unset.

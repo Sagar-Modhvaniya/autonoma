@@ -85,6 +85,8 @@ const orgGithubFixtures: TrpcFixtures = {
       accountLogin: "acme",
       accountId: 42,
       accountType: "Organization",
+    provider: "github" as const,
+    providerBaseUrl: null,
       status: "active",
       appSlug: "autonoma-ai",
       settingsUrl: "https://github.com/organizations/acme/settings/installations/1",

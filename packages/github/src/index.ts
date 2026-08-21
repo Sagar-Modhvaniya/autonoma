@@ -50,5 +50,14 @@ export {
 export type { EtagStore } from "./etag-store";
 export { FakeGitHubApp } from "./fake/fake-github-app";
 export { FakeGitHubInstallationClient } from "./fake/fake-github-installation-client";
+export { GitLabApp, GITLAB_INSTALLATION_ID, type GitLabAppConfig } from "./gitlab/gitlab-app";
+export { GitLabApi, GitLabApiError, encodeProjectPath, type GitLabApiConfig } from "./gitlab/gitlab-api";
+export { GitLabInstallationClient } from "./gitlab/gitlab-installation-client";
+export { NullGitHubApp } from "./gitlab/null-github-app";
+export {
+    MultiProviderApp,
+    type GitLabConnection,
+    type GitLabConnectionResolver,
+} from "./gitlab/multi-provider-app";
 export { LocalDevGitHubApp } from "./local-dev/local-dev-github-app";
 export { LocalDevGitHubInstallationClient } from "./local-dev/local-dev-github-installation-client";

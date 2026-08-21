@@ -1,13 +1,20 @@
 import { Badge, Button, Panel, PanelBody, PanelHeader, PanelTitle, Separator, Skeleton } from "@autonoma/blacklight";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { GithubLogoIcon } from "@phosphor-icons/react/GithubLogo";
+import { GitlabLogoIcon } from "@phosphor-icons/react/GitlabLogo";
 import { LinkBreakIcon } from "@phosphor-icons/react/LinkBreak";
 import { createFileRoute } from "@tanstack/react-router";
+import { ConnectGitLabSection } from "components/connect-gitlab";
 import { InstallFailureBanner } from "components/install-failure-banner";
 import { RouteErrorState } from "components/route-error-state";
 import { manageUrlSchema, singleAccountLimitNote } from "lib/github-install-errors";
 import { useActiveOrg } from "lib/query/auth.queries";
-import { useDisconnectGithub, useGithubConfig, useGithubInstallation } from "lib/query/github.queries";
+import {
+  useDisconnectGitLab,
+  useDisconnectGithub,
+  useGithubConfig,
+  useGithubInstallation,
+} from "lib/query/github.queries";
 import { Suspense, useState } from "react";
 import { z } from "zod";
 import { OrgScopeNote } from "../-org-scope-note";
@@ -24,7 +31,7 @@ export const Route = createFileRoute("/_blacklight/_app-shell/app/$appSlug/setti
     manageUrl: manageUrlSchema,
   }),
   errorComponent: ({ reset }) => (
-    <RouteErrorState message="We couldn't load your GitHub App installation." reset={reset} />
+    <RouteErrorState message="We couldn't load your git provider connection." reset={reset} />
   ),
   component: GitHubSettingsPage,
 });
@@ -39,7 +46,7 @@ function GitHubSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <OrgScopeNote>The GitHub App is installed once.</OrgScopeNote>
+      <OrgScopeNote>The git provider is connected once.</OrgScopeNote>
       {error != null && (
         <InstallFailureBanner error={error} account={account} attempted={attempted} manageUrl={manageUrl} />
       )}
@@ -74,6 +81,7 @@ function GitHubSettingsContent() {
       accountLogin={installation.accountLogin}
       status={installation.status}
       settingsUrl={installation.settingsUrl}
+      provider={installation.provider}
     />
   );
 }
@@ -87,23 +95,26 @@ function NotConnectedPanel() {
   return (
     <Panel>
       <PanelHeader>
-        <PanelTitle>GitHub integration</PanelTitle>
+        <PanelTitle>Git provider</PanelTitle>
       </PanelHeader>
       <PanelBody className="space-y-4">
         <p className="text-xs text-text-secondary">
-          Connect a GitHub App so Autonoma can read pull requests and post its review back onto them.
+          Connect a git provider so Autonoma can read pull requests and post its review back onto them.
         </p>
-        <Button
-          variant="accent"
-          className="gap-2"
-          onClick={() => {
-            if (data.installUrl != null) window.location.href = data.installUrl;
-          }}
-          disabled={data.installUrl == null}
-        >
-          <GithubLogoIcon size={16} weight="bold" />
-          Install GitHub App
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="accent"
+            className="gap-2"
+            onClick={() => {
+              if (data.installUrl != null) window.location.href = data.installUrl;
+            }}
+            disabled={data.installUrl == null}
+          >
+            <GithubLogoIcon size={16} weight="bold" />
+            Install GitHub App
+          </Button>
+        </div>
+        <ConnectGitLabSection />
       </PanelBody>
     </Panel>
   );
@@ -113,32 +124,43 @@ function InstallationPanel({
   accountLogin,
   status,
   settingsUrl,
+  provider,
 }: {
   accountLogin: string;
   status: string;
   settingsUrl: string;
+  provider: "github" | "gitlab";
 }) {
-  const disconnect = useDisconnectGithub();
+  const providerName = provider === "gitlab" ? "GitLab" : "GitHub";
+  const disconnectGithub = useDisconnectGithub();
+  const disconnectGitlab = useDisconnectGitLab();
+  const disconnect = provider === "gitlab" ? disconnectGitlab : disconnectGithub;
   const [confirming, setConfirming] = useState(false);
   // The demo shows a real org's installation; its GitHub settings page is not ours
   // to send visitors to, so drop the outbound "Manage on GitHub" link in demo mode.
   const isDemo = useActiveOrg().data?.isDemo === true;
   // Shared with the failure copy and gated on the same flag, so lifting the one-account limit does
   // not leave this paragraph behind asserting something that is no longer true.
-  const limitNote = singleAccountLimitNote(accountLogin);
+  const limitNote = singleAccountLimitNote(accountLogin, provider);
 
   return (
     <Panel>
       <PanelHeader>
-        <PanelTitle>GitHub App</PanelTitle>
+        <PanelTitle>{provider === "gitlab" ? "GitLab connection" : "GitHub App"}</PanelTitle>
       </PanelHeader>
       <PanelBody className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <GithubLogoIcon size={20} weight="duotone" className="text-text-secondary" />
+            {provider === "gitlab" ? (
+              <GitlabLogoIcon size={20} weight="duotone" className="text-text-secondary" />
+            ) : (
+              <GithubLogoIcon size={20} weight="duotone" className="text-text-secondary" />
+            )}
             <div>
               <p className="text-sm font-medium text-text-primary">{accountLogin}</p>
-              <p className="font-mono text-2xs text-text-secondary">GitHub App installation</p>
+              <p className="font-mono text-2xs text-text-secondary">
+                {provider === "gitlab" ? "GitLab connection" : "GitHub App installation"}
+              </p>
             </div>
           </div>
           <Badge variant={status === "active" ? "success" : "destructive"}>{status}</Badge>
@@ -151,7 +173,7 @@ function InstallationPanel({
         {confirming ? (
           <div className="flex items-center gap-3">
             <p className="text-xs text-status-critical">
-              This disconnects the GitHub App from your whole organization and unlinks every repository from all
+              This disconnects {providerName} from your whole organization and unlinks every repository from all
               applications. To change just one application's repository, use that application's General settings. Are
               you sure?
             </p>
@@ -177,7 +199,7 @@ function InstallationPanel({
                 className="inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary"
               >
                 <ArrowSquareOutIcon size={14} />
-                Manage on GitHub
+                Manage on {providerName}
               </a>
             )}
             <Button variant="ghost" size="sm" className="gap-2 text-text-secondary" onClick={() => setConfirming(true)}>

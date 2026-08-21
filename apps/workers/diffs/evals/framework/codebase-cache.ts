@@ -104,6 +104,19 @@ let githubAppSingleton: GitHubApp | undefined;
 async function loadDefaultGithubApp(): Promise<GitHubApp> {
     if (githubAppSingleton == null) {
         const { env } = await import("../../src/env");
+        // The GITHUB_APP_* vars are optional now that a worker can serve GitLab-only
+        // installs - but minting an installation token is inherently a GitHub App
+        // operation, so reaching this point without them is a configuration error.
+        if (
+            env.GITHUB_APP_ID == null ||
+            env.GITHUB_APP_PRIVATE_KEY == null ||
+            env.GITHUB_APP_WEBHOOK_SECRET == null ||
+            env.GITHUB_APP_SLUG == null
+        ) {
+            throw new Error(
+                "GITHUB_APP_ID/PRIVATE_KEY/WEBHOOK_SECRET/SLUG must be set to mint installation tokens for private-repo evals",
+            );
+        }
         githubAppSingleton = new OctokitGitHubApp({
             appId: env.GITHUB_APP_ID,
             // Evals run under TESTING=true, which makes createEnv skip the base64PrivateKey transform,

@@ -923,6 +923,9 @@ importers:
       '@autonoma/logger':
         specifier: workspace:*
         version: link:../../../packages/logger
+      '@autonoma/scenario':
+        specifier: workspace:*
+        version: link:../../../packages/scenario
       '@autonoma/secrets':
         specifier: workspace:*
         version: link:../../../packages/secrets

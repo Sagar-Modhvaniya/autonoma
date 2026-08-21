@@ -1,7 +1,7 @@
 import { analytics } from "@autonoma/analytics";
 import { db } from "@autonoma/db";
 import { InsufficientPreviewCreditsError } from "@autonoma/errors";
-import type { GitHubApp } from "@autonoma/github";
+import { GITLAB_INSTALLATION_ID, type GitHubApp } from "@autonoma/github";
 import { logger } from "@autonoma/logger";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -12,12 +12,16 @@ import type { PreviewDeployAction } from "../previewkit/previewkit-trigger.servi
 import { BranchContributorService } from "./branch-contributor.service";
 import { BugFixOutcomeService } from "./bug-fix-outcome.service";
 import { FalsePositiveCandidateService } from "./false-positive-candidate.service";
+import { encryptionHelper } from "../encryption";
 import { buildGitHubApp } from "./github-app";
+import { GitLabConnectionService } from "./gitlab-connection.service";
 import { GitHubInstallationService } from "./github-installation.service";
 import { configureInstallationUrl } from "./github-urls";
 import { MergeGateSlackNotifier } from "./merge-gate-slack-notifier";
 import { MergeGateService } from "./merge-gate.service";
 import { PullRequestCacheService } from "./pull-request-cache.service";
+import { triggerAnalysisForCustomerDeployedPr } from "./customer-deploy-analysis";
+import { translateGitLabWebhook } from "./gitlab-webhook-translate";
 import { resolveInstallOrganization } from "./resolve-install-organization";
 
 type GitHubEnv = {
@@ -30,6 +34,7 @@ type GitHubEnv = {
 const githubApp = buildGitHubApp(env);
 const githubService = new GitHubInstallationService(db, githubApp);
 const prCacheService = new PullRequestCacheService(db, githubService);
+const gitlabConnectionService = new GitLabConnectionService(db, encryptionHelper);
 const falsePositiveCandidatesService = new FalsePositiveCandidateService(db);
 const mergeGateService = new MergeGateService(
     db,
@@ -258,6 +263,70 @@ githubHttpRouter.post("/webhook", async (ctx) => {
     return ctx.json({ ok: true });
 });
 
+/**
+ * GitLab webhook receiver. GitLab deliveries carry the shared secret verbatim
+ * in `X-Gitlab-Token` (no HMAC) and name the event in `X-Gitlab-Event`; the
+ * payload is translated into the GitHub shape and dispatched through the same
+ * pipeline as GitHub deliveries, so downstream consumers stay provider-agnostic.
+ * Only meaningful when the API is configured with a GitLabApp - any other app's
+ * `verifyWebhook` rejects the equality-style token check.
+ */
+githubHttpRouter.post("/gitlab-webhook", async (ctx) => {
+    const body = await ctx.req.text();
+    const token = ctx.req.header("x-gitlab-token") ?? "";
+    const event = ctx.req.header("x-gitlab-event") ?? "";
+
+    // Per-organization connections carry their own webhook secret; matching the
+    // delivery token to a stored secret authenticates AND attributes it in one
+    // step. Env-configured (single-tenant) setups fall back to the base app's
+    // equality check and the synthetic installation id.
+    let installationId: number | undefined;
+    let organizationId: string | undefined;
+    const connection = await gitlabConnectionService.findConnectionByWebhookToken(token);
+    if (connection != null) {
+        installationId = connection.installationId;
+        organizationId = connection.organizationId;
+    } else if (await githubApp.verifyWebhook(body, token)) {
+        installationId = GITLAB_INSTALLATION_ID;
+        organizationId =
+            (await githubService.findOrganizationIdByInstallationId(GITLAB_INSTALLATION_ID)) ?? undefined;
+    } else {
+        logger.warn("Invalid GitLab webhook token");
+        return ctx.json({ error: "Invalid token" }, 401);
+    }
+
+    if (organizationId == null || installationId == null) {
+        logger.warn("GitLab webhook: no organization linked to the GitLab connection");
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    const translated = translateGitLabWebhook(event, JSON.parse(body), installationId);
+    if (translated == null) {
+        logger.info("GitLab webhook: ignored event", { event });
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    const eventType = isWebhookEventKey(translated.eventKey) ? WEBHOOK_EVENT_TYPES[translated.eventKey] : undefined;
+    if (eventType == null) {
+        return ctx.json({ ok: true, ignored: true });
+    }
+
+    // Same ack-then-process contract as the GitHub route: GitLab retries slow
+    // deliveries too, and the dispatched work is durable.
+    void dispatchWebhookEvent(
+        eventType,
+        installationId,
+        organizationId,
+        githubService,
+        prCacheService,
+        translated.payload,
+    ).catch((error) => {
+        logger.fatal("Error processing GitLab webhook", error, { event });
+    });
+
+    return ctx.json({ ok: true });
+});
+
 async function dispatchWebhookEvent(
     type: GitHubWebhookEventType,
     installationId: number,
@@ -281,18 +350,21 @@ async function dispatchWebhookEvent(
         case "pull_request_opened":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("opened", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;
         case "pull_request_synchronize":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("synchronize", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;
         case "pull_request_reopened":
             await prCacheService.updateFromWebhook(organizationId, payload);
             await startPullRequestDeploy("reopened", organizationId, payload);
+            await triggerAnalysisForCustomerDeployedPr(db, diffsTriggerService, organizationId, payload);
             await mergeGateService.postPendingFromWebhook(organizationId, payload);
             await branchContributorService.refreshFromWebhook(organizationId, payload);
             return;

@@ -8,16 +8,32 @@ export const env = createEnv({
     extends: [loggerEnv, dbEnv],
     server: {
         SENTRY_DSN_WORKER_DIFFS: z.string().optional(),
+        // The UI origin PR-comment links point at. Required for self-hosted
+        // instances; managed environments fall back to inferring it from
+        // SENTRY_ENV (see resolveAppUrl).
+        APP_URL: z.string().url().optional(),
         POSTHOG_KEY: z.string().optional(),
         POSTHOG_HOST: z.string().optional().default("https://us.i.posthog.com"),
-        GITHUB_APP_ID: z.string().min(1),
-        GITHUB_APP_PRIVATE_KEY: base64PrivateKey,
-        GITHUB_APP_WEBHOOK_SECRET: z.string().min(1),
-        GITHUB_APP_SLUG: z.string().min(1),
+        // Optional as a set: a GitLab-only deployment runs this worker without a
+        // GitHub App. createGithubApp throws a clear error when neither
+        // provider is configured.
+        GITHUB_APP_ID: z.string().min(1).optional(),
+        GITHUB_APP_PRIVATE_KEY: base64PrivateKey.optional(),
+        GITHUB_APP_WEBHOOK_SECRET: z.string().min(1).optional(),
+        GITHUB_APP_SLUG: z.string().min(1).optional(),
+        // GitLab (see apps/api env for semantics). The worker also resolves
+        // per-organization GitLab connections from the database, which needs
+        // SCENARIO_ENCRYPTION_KEY to decrypt the stored tokens.
+        GITLAB_BASE_URL: z.string().url().optional(),
+        GITLAB_TOKEN: z.string().min(1).optional(),
+        SCENARIO_ENCRYPTION_KEY: z.string().min(1).optional(),
         // The native-OpenAI key the analysis model session is built from. OPTIONAL so the worker still boots
         // without it: createModelSession throws at call time instead, failing one analysis run rather than the
         // whole worker. The OpenRouter/Gemini/Groq keys are read by @autonoma/ai from its own env.
         OPENAI_API_KEY: z.string().min(1).optional(),
+        // Self-hosted: point the analysis models at any OpenAI-compatible
+        // gateway (e.g. LiteLLM fronting Azure OpenAI).
+        OPENAI_BASE_URL: z.string().url().optional(),
         // Optional rather than defaulted: the model session owns each capability's default, and a `.default()`
         // here would be a second copy of it.
         INVESTIGATION_CLASSIFIER_MODEL: z.string().optional(),
